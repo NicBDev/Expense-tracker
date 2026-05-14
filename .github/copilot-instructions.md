@@ -26,10 +26,10 @@ When helping on a feature branch, stay consistent with the approach already esta
 |---|---|
 | `src/types/index.ts` | All shared types (`Expense`, `Category`, `FilterState`, etc.) |
 | `src/lib/storage.ts` | localStorage CRUD — `loadExpenses`, `saveExpenses`, `addExpense`, `updateExpense`, `deleteExpense` |
-| `src/lib/utils.ts` | `formatCurrency`, `formatDate`, `computeStats`, `CATEGORIES`, `CATEGORY_COLORS`, `CATEGORY_ICONS` |
-| `src/lib/exportUtils.ts` | Export pipeline: `applyExportFilters`, `exportCSV`, `exportJSON`, `exportPDF`, `runExport` |
+| `src/lib/utils.ts` | `formatCurrency`, `formatDate`, `computeStats`, `generateId`, `exportToCSV` (legacy v1), `CATEGORIES`, `CATEGORY_COLORS`, `CATEGORY_ICONS` |
+| `src/lib/exportUtils.ts` | Export pipeline: `applyExportFilters`, `exportCSV`, `exportJSON`, `exportPDF`, `runExport` — plus types `ExportFormat`, `ExportFilters`, `ExportConfig` |
 | `src/hooks/useExpenses.ts` | `useExpenses()` for CRUD, `useFilteredExpenses()` for filtered/sorted views |
-| `src/components/ExportModal.tsx` | Full export modal — format picker, date range, category pills, preview table, filename input |
+| `src/components/ExportModal.tsx` | Full export modal — format picker, date range, category pills, preview table, filename input. **Mounted on the dashboard page only** (`src/app/page.tsx`). |
 
 ## Type Reference
 
@@ -44,7 +44,24 @@ interface Expense {
   description: string;
   createdAt: string; // ISO timestamp
 }
+
+// Export types — defined in src/lib/exportUtils.ts
+type ExportFormat = "csv" | "json" | "pdf";
+
+interface ExportFilters {
+  startDate: string;   // YYYY-MM-DD or ""
+  endDate: string;     // YYYY-MM-DD or ""
+  categories: Category[]; // empty = all categories
+}
+
+interface ExportConfig {
+  format: ExportFormat;
+  filename: string;
+  filters: ExportFilters;
+}
 ```
+
+> **Note:** `exportToCSV()` in `utils.ts` is the original v1 inline export. The v2 `ExportModal` uses `exportUtils.ts` instead. Prefer `exportUtils.ts` for any new export work.
 
 ## UI Patterns
 
