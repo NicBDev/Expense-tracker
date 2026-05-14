@@ -4,10 +4,11 @@ import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { type Expense, type FilterState, type SortField, type SortOrder } from "@/types";
 import { useExpenses, useFilteredExpenses } from "@/hooks/useExpenses";
-import { computeStats, exportToCSV, formatCurrency } from "@/lib/utils";
+import { computeStats, formatCurrency } from "@/lib/utils";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import FilterBar from "@/components/FilterBar";
+import ExportModal from "@/components/ExportModal";
 import { PlusCircle, Download, X } from "lucide-react";
 
 const DEFAULT_FILTER: FilterState = {
@@ -28,6 +29,7 @@ export default function ExpensesPage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // open form from navbar CTA
   useEffect(() => {
@@ -103,15 +105,13 @@ export default function ExpensesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {filtered.length > 0 && (
-            <button
-              onClick={() => exportToCSV(filtered)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Export CSV</span>
-            </button>
-          )}
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-indigo-300 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Export</span>
+          </button>
           <button
             onClick={() => {
               setEditing(null);
@@ -191,6 +191,14 @@ export default function ExpensesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <ExportModal
+          expenses={expenses}
+          onClose={() => setShowExportModal(false)}
+        />
       )}
 
       {/* Toast */}
