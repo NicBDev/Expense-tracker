@@ -7,8 +7,8 @@ import SummaryCards from "@/components/SummaryCards";
 import SpendingChart from "@/components/SpendingChart";
 import CategoryChart from "@/components/CategoryChart";
 import Link from "next/link";
-import { ArrowRight, PlusCircle } from "lucide-react";
-import { formatCurrency, formatDate, CATEGORY_COLORS, CATEGORY_ICONS } from "@/lib/utils";
+import { ArrowRight, PlusCircle, Download } from "lucide-react";
+import { formatCurrency, formatDate, CATEGORY_COLORS, CATEGORY_ICONS, exportToCSV } from "@/lib/utils";
 import { type Category } from "@/types";
 
 export default function DashboardPage() {
@@ -35,13 +35,24 @@ export default function DashboardPage() {
             Your spending at a glance
           </p>
         </div>
-        <Link
-          href="/expenses?add=true"
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          <PlusCircle className="w-4 h-4" />
-          Add Expense
-        </Link>
+        <div className="flex items-center gap-2">
+          {expenses.length > 0 && (
+            <button
+              onClick={() => exportToCSV(expenses)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Export Data
+            </button>
+          )}
+          <Link
+            href="/expenses?add=true"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            <PlusCircle className="w-4 h-4" />
+            Add Expense
+          </Link>
+        </div>
       </div>
 
       {/* Summary Cards */}
