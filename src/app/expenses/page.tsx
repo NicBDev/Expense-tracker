@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { type Expense, type FilterState, type SortField, type SortOrder } from "@/types";
 import { useExpenses, useFilteredExpenses } from "@/hooks/useExpenses";
@@ -17,7 +17,7 @@ const DEFAULT_FILTER: FilterState = {
   dateTo: "",
 };
 
-export default function ExpensesPage() {
+function ExpensesContent() {
   const params = useSearchParams();
   const router = useRouter();
   const { expenses, hydrated, add, update, remove } = useExpenses();
@@ -206,5 +206,13 @@ export default function ExpensesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ExpensesPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
+      <ExpensesContent />
+    </Suspense>
   );
 }
