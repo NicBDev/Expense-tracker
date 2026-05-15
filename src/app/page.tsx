@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useExpenses } from "@/hooks/useExpenses";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { computeStats } from "@/lib/utils";
 import SummaryCards from "@/components/SummaryCards";
 import SpendingChart from "@/components/SpendingChart";
@@ -14,6 +15,7 @@ import { type Category } from "@/types";
 
 export default function DashboardPage() {
   const { expenses, hydrated } = useExpenses();
+  const { workspaceId } = useWorkspace();
   const stats = useMemo(() => computeStats(expenses), [expenses]);
   const [showCloudExport, setShowCloudExport] = useState(false);
 
@@ -58,6 +60,7 @@ export default function DashboardPage() {
       {showCloudExport && (
         <CloudExportPanel
           expenses={expenses}
+          workspaceId={workspaceId ?? ""}
           onClose={() => setShowCloudExport(false)}
         />
       )}

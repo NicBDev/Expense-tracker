@@ -40,16 +40,9 @@ import {
   type ExportHistoryItem,
   type ScheduledExport,
   type SharedLink,
-  loadHistory,
-  loadSchedules,
-  loadSharedLinks,
   loadConnections,
   saveConnections,
-  saveSchedules,
-  saveSharedLinks,
   runExportWithHistory,
-  createSharedLink,
-  createSchedule,
   generateQRGrid,
 } from "@/lib/cloudExport";
 import { format, parseISO, formatDistanceToNow } from "date-fns";
@@ -60,12 +53,13 @@ type Tab = "export" | "schedule" | "history" | "share";
 
 interface Props {
   expenses: Expense[];
+  workspaceId: string;
   onClose: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function CloudExportPanel({ expenses, onClose }: Props) {
+export default function CloudExportPanel({ expenses, workspaceId, onClose }: Props) {
   const [tab, setTab] = useState<Tab>("export");
 
   // Escape key
@@ -144,10 +138,10 @@ export default function CloudExportPanel({ expenses, onClose }: Props) {
 
         {/* Tab content */}
         <div className="flex-1 overflow-y-auto">
-          {tab === "export" && <ExportTab expenses={expenses} />}
-          {tab === "schedule" && <ScheduleTab expenses={expenses} />}
-          {tab === "history" && <HistoryTab />}
-          {tab === "share" && <ShareTab expenses={expenses} />}
+          {tab === "export" && <ExportTab expenses={expenses} workspaceId={workspaceId} />}
+          {tab === "schedule" && <ScheduleTab workspaceId={workspaceId} />}
+          {tab === "history" && <HistoryTab workspaceId={workspaceId} />}
+          {tab === "share" && <ShareTab workspaceId={workspaceId} />}
         </div>
       </div>
     </div>
@@ -156,7 +150,7 @@ export default function CloudExportPanel({ expenses, onClose }: Props) {
 
 // ─── Tab: Export ──────────────────────────────────────────────────────────────
 
-function ExportTab({ expenses }: { expenses: Expense[] }) {
+function ExportTab({ expenses, workspaceId }: { expenses: Expense[]; workspaceId: string }) {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>("monthly_summary");
   const [selectedDest, setSelectedDest] = useState<DestinationId>("email");
   const [format, setFormat] = useState<"csv" | "json" | "pdf">("csv");
@@ -191,7 +185,35 @@ function ExportTab({ expenses }: { expenses: Expense[] }) {
     setRunning(true);
     setDone(false);
     setProgress(0);
-    await runExportWithHistory(expenses, template, dest, format, setProgress);
+    // Filter expenses by template filterPreset
+    let filtered = expenses;
+    if (template.filterPreset?.months) {
+      const cutoff = new Date();
+      cutoff.setMonth(cutoff.getMonth() - template.filterPreset.months);
+      filtered = expenses.filter((e) => new Date(e.date) >= cutoff);
+    }
+    if (template.filterPreset?.categories?.length) {
+      filtered = filtered.filter((e) =>
+        (template.filterPreset!.categories! as string[]).includes(e.category)
+      );
+    }
+    await runExportWithHistory(filtered, template, dest, format, setProgress);
+    // Record in API
+    try {
+      await fetch("/api/export-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceId,
+          templateName: template.name,
+          destinationName: dest.name,
+          destinationIcon: dest.icon,
+          format,
+          recordCount: filtered.length,
+          fileSize: `${Math.round(filtered.length * 0.5)}KB`,
+        }),
+      });
+    } catch {/* best effort */}
     setRunning(false);
     setDone(true);
     setTimeout(() => setDone(false), 3000);
@@ -386,7 +408,7 @@ function ExportTab({ expenses }: { expenses: Expense[] }) {
 
 // ─── Tab: Schedule ────────────────────────────────────────────────────────────
 
-function ScheduleTab({ expenses }: { expenses: Expense[] }) {
+function ScheduleTab({ workspaceId }: { workspaceId: string }) {
   const [schedules, setSchedules] = useState<ScheduledExport[]>([]);
   const [templateId, setTemplateId] = useState<TemplateId>("monthly_summary");
   const [destId, setDestId] = useState<DestinationId>("email");
@@ -395,32 +417,49 @@ function ScheduleTab({ expenses }: { expenses: Expense[] }) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setSchedules(loadSchedules());
-  }, []);
+    if (!workspaceId) return;
+    fetch(`/api/schedules?workspaceId=${workspaceId}`)
+      .then((r) => r.json())
+      .then((data) => setSchedules(data))
+      .catch(() => {});
+  }, [workspaceId]);
 
-  function handleCreate() {
+  async function handleCreate() {
     setCreating(true);
-    setTimeout(() => {
-      const s = createSchedule(templateId, destId, frequency);
-      setSchedules((prev) => [s, ...prev]);
+    try {
+      const res = await fetch("/api/schedules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId, templateId, destinationId: destId, frequency }),
+      });
+      if (res.ok) {
+        const s = await res.json();
+        setSchedules((prev) => [s, ...prev]);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } finally {
       setCreating(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    }, 800);
+    }
   }
 
-  function toggleSchedule(id: string) {
-    const updated = schedules.map((s) =>
-      s.id === id ? { ...s, active: !s.active } : s
-    );
-    setSchedules(updated);
-    saveSchedules(updated);
+  async function toggleSchedule(id: string) {
+    const s = schedules.find((s) => s.id === id);
+    if (!s) return;
+    const res = await fetch(`/api/schedules?id=${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !s.active }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setSchedules((prev) => prev.map((s) => (s.id === id ? updated : s)));
+    }
   }
 
-  function deleteSchedule(id: string) {
-    const updated = schedules.filter((s) => s.id !== id);
-    setSchedules(updated);
-    saveSchedules(updated);
+  async function deleteSchedule(id: string) {
+    const res = await fetch(`/api/schedules?id=${id}`, { method: "DELETE" });
+    if (res.ok) setSchedules((prev) => prev.filter((s) => s.id !== id));
   }
 
   const freqLabels: Record<Frequency, string> = {
@@ -584,16 +623,20 @@ function ScheduleTab({ expenses }: { expenses: Expense[] }) {
 
 // ─── Tab: History ─────────────────────────────────────────────────────────────
 
-function HistoryTab() {
+function HistoryTab({ workspaceId }: { workspaceId: string }) {
   const [history, setHistory] = useState<ExportHistoryItem[]>([]);
 
   useEffect(() => {
-    setHistory(loadHistory());
-  }, []);
+    if (!workspaceId) return;
+    fetch(`/api/export-history?workspaceId=${workspaceId}`)
+      .then((r) => r.json())
+      .then((data) => setHistory(data))
+      .catch(() => {});
+  }, [workspaceId]);
 
-  function clearHistory() {
-    setHistory([]);
-    localStorage.removeItem("spendwise-export-history");
+  async function clearHistory() {
+    const res = await fetch(`/api/export-history?workspaceId=${workspaceId}`, { method: "DELETE" });
+    if (res.ok) setHistory([]);
   }
 
   return (
@@ -668,7 +711,7 @@ function HistoryTab() {
 
 // ─── Tab: Share ───────────────────────────────────────────────────────────────
 
-function ShareTab({ expenses }: { expenses: Expense[] }) {
+function ShareTab({ workspaceId }: { workspaceId: string }) {
   const [links, setLinks] = useState<SharedLink[]>([]);
   const [label, setLabel] = useState("My Expense Report");
   const [creating, setCreating] = useState(false);
@@ -676,17 +719,37 @@ function ShareTab({ expenses }: { expenses: Expense[] }) {
   const [showQR, setShowQR] = useState<string | null>(null);
 
   useEffect(() => {
-    setLinks(loadSharedLinks());
-  }, []);
+    if (!workspaceId) return;
+    fetch(`/api/shared-links?workspaceId=${workspaceId}`)
+      .then((r) => r.json())
+      .then((data: Array<SharedLink & { token: string }>) =>
+        setLinks(
+          data.map((l) => ({
+            ...l,
+            url: l.url ?? `${window.location.origin}/share/${l.token}`,
+          }))
+        )
+      )
+      .catch(() => {});
+  }, [workspaceId]);
 
-  function handleCreate() {
+  async function handleCreate() {
     setCreating(true);
-    setTimeout(() => {
-      const link = createSharedLink(label || "Shared Report");
-      setLinks((prev) => [link, ...prev]);
+    try {
+      const res = await fetch("/api/shared-links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId, label: label || "Shared Report" }),
+      });
+      if (res.ok) {
+        const l = await res.json();
+        const withUrl: SharedLink = { ...l, url: `${window.location.origin}/share/${l.token}` };
+        setLinks((prev) => [withUrl, ...prev]);
+        setLabel("My Expense Report");
+      }
+    } finally {
       setCreating(false);
-      setLabel("My Expense Report");
-    }, 600);
+    }
   }
 
   function copyLink(link: SharedLink) {
@@ -695,10 +758,9 @@ function ShareTab({ expenses }: { expenses: Expense[] }) {
     setTimeout(() => setCopiedId(null), 2000);
   }
 
-  function revokeLink(id: string) {
-    const updated = links.map((l) => (l.id === id ? { ...l, active: false } : l));
-    setLinks(updated);
-    saveSharedLinks(updated);
+  async function revokeLink(id: string) {
+    const res = await fetch(`/api/shared-links?id=${id}`, { method: "PATCH" });
+    if (res.ok) setLinks((prev) => prev.map((l) => (l.id === id ? { ...l, active: false } : l)));
   }
 
   const activeLinks = links.filter((l) => l.active);
@@ -724,7 +786,7 @@ function ShareTab({ expenses }: { expenses: Expense[] }) {
         />
         <button
           onClick={handleCreate}
-          disabled={creating || expenses.length === 0}
+          disabled={creating}
           className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
         >
           {creating ? (
