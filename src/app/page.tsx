@@ -1,19 +1,23 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useExpenses } from "@/hooks/useExpenses";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { computeStats } from "@/lib/utils";
 import SummaryCards from "@/components/SummaryCards";
 import SpendingChart from "@/components/SpendingChart";
 import CategoryChart from "@/components/CategoryChart";
+import CloudExportPanel from "@/components/CloudExportPanel";
 import Link from "next/link";
-import { ArrowRight, PlusCircle } from "lucide-react";
+import { ArrowRight, PlusCircle, Cloud } from "lucide-react";
 import { formatCurrency, formatDate, CATEGORY_COLORS, CATEGORY_ICONS } from "@/lib/utils";
 import { type Category } from "@/types";
 
 export default function DashboardPage() {
   const { expenses, hydrated } = useExpenses();
+  const { workspaceId } = useWorkspace();
   const stats = useMemo(() => computeStats(expenses), [expenses]);
+  const [showCloudExport, setShowCloudExport] = useState(false);
 
   if (!hydrated) {
     return (
@@ -35,14 +39,31 @@ export default function DashboardPage() {
             Your spending at a glance
           </p>
         </div>
-        <Link
-          href="/expenses?add=true"
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          <PlusCircle className="w-4 h-4" />
-          Add Expense
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCloudExport(true)}
+            className="flex items-center gap-2 border border-indigo-200 text-indigo-700 hover:bg-indigo-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            <Cloud className="w-4 h-4" />
+            Cloud Export
+          </button>
+          <Link
+            href="/expenses?add=true"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            <PlusCircle className="w-4 h-4" />
+            Add Expense
+          </Link>
+        </div>
       </div>
+
+      {showCloudExport && (
+        <CloudExportPanel
+          expenses={expenses}
+          workspaceId={workspaceId ?? ""}
+          onClose={() => setShowCloudExport(false)}
+        />
+      )}
 
       {/* Summary Cards */}
       <SummaryCards stats={stats} />
