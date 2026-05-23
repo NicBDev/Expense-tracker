@@ -6,7 +6,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
 import {
   BarChart3, List, PlusCircle, Wallet, ChevronDown,
-  LogOut, User, Building2, Plus, Check, Users, TrendingUp, Tag,
+  LogOut, User, Building2, Plus, Check, Users, TrendingUp, Tag, Store,
 } from "lucide-react";
 import clsx from "clsx";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -17,6 +17,7 @@ const navLinks = [
   { href: "/expenses", label: "Expenses", icon: List },
   { href: "/analytics", label: "Analytics", icon: TrendingUp },
   { href: "/top-expense-categories", label: "Top Categories", icon: Tag },
+  { href: "/top-vendors", label: "Top Vendors", icon: Store },
 ];
 
 export default function Navbar() {
