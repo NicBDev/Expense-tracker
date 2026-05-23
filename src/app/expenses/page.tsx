@@ -8,7 +8,7 @@ import { computeStats, exportToCSV, formatCurrency } from "@/lib/utils";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import FilterBar from "@/components/FilterBar";
-import { PlusCircle, Download, X } from "lucide-react";
+import { Download, X } from "lucide-react";
 
 const DEFAULT_FILTER: FilterState = {
   search: "",
@@ -112,16 +112,6 @@ function ExpensesContent() {
               <span className="hidden sm:inline">Export CSV</span>
             </button>
           )}
-          <button
-            onClick={() => {
-              setEditing(null);
-              setShowForm(true);
-            }}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">Add Expense</span>
-          </button>
         </div>
       </div>
 
