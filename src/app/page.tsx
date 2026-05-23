@@ -9,7 +9,7 @@ import SpendingChart from "@/components/SpendingChart";
 import CategoryChart from "@/components/CategoryChart";
 import CloudExportPanel from "@/components/CloudExportPanel";
 import Link from "next/link";
-import { ArrowRight, PlusCircle, Cloud } from "lucide-react";
+import { ArrowRight, Download, PlusCircle } from "lucide-react";
 import { formatCurrency, formatDate, CATEGORY_COLORS, CATEGORY_ICONS } from "@/lib/utils";
 import { type Category } from "@/types";
 
@@ -44,16 +44,9 @@ export default function DashboardPage() {
             onClick={() => setShowCloudExport(true)}
             className="flex items-center gap-2 border border-indigo-200 text-indigo-700 hover:bg-indigo-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
-            <Cloud className="w-4 h-4" />
-            Cloud Export
+            <Download className="w-4 h-4" />
+            Export Options
           </button>
-          <Link
-            href="/expenses?add=true"
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            <PlusCircle className="w-4 h-4" />
-            Add Expense
-          </Link>
         </div>
       </div>
 
