@@ -6,10 +6,11 @@ import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
 import {
   BarChart3, List, PlusCircle, Wallet, ChevronDown,
-  LogOut, User, Building2, Plus, Check,
+  LogOut, User, Building2, Plus, Check, Users,
 } from "lucide-react";
 import clsx from "clsx";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import WorkspaceMembersModal from "@/components/WorkspaceMembersModal";
 
 const navLinks = [
   { href: "/", label: "Dashboard", icon: BarChart3 },
@@ -24,6 +25,7 @@ export default function Navbar() {
   const [userOpen, setUserOpen] = useState(false);
   const [newWsName, setNewWsName] = useState("");
   const [creatingWs, setCreatingWs] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
 
   async function createWorkspace() {
     if (!newWsName.trim()) return;
@@ -90,6 +92,17 @@ export default function Navbar() {
                           {ws.id === workspaceId && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
                         </button>
                       ))}
+                      {/* Manage members for current workspace */}
+                      {currentWorkspace && (
+                        <button
+                          onClick={() => { setWorkspaceOpen(false); setMembersOpen(true); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          Manage Members
+                        </button>
+                      )}
+
                       <div className="border-t border-slate-100 mt-1 pt-1 px-2 pb-2">
                         <div className="flex items-center gap-1.5">
                           <input
@@ -192,6 +205,17 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      {/* Workspace Members Modal */}
+      {membersOpen && currentWorkspace && session?.user && (
+        <WorkspaceMembersModal
+          workspaceId={currentWorkspace.id}
+          workspaceName={currentWorkspace.name}
+          currentUserId={(session.user as { id?: string }).id ?? ""}
+          currentRole={currentWorkspace.role}
+          onClose={() => setMembersOpen(false)}
+        />
+      )}
     </header>
   );
 }
