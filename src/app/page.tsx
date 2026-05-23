@@ -9,7 +9,7 @@ import SpendingChart from "@/components/SpendingChart";
 import CategoryChart from "@/components/CategoryChart";
 import CloudExportPanel from "@/components/CloudExportPanel";
 import Link from "next/link";
-import { ArrowRight, Download } from "lucide-react";
+import { ArrowRight, Download, PlusCircle } from "lucide-react";
 import { formatCurrency, formatDate, CATEGORY_COLORS, CATEGORY_ICONS } from "@/lib/utils";
 import { type Category } from "@/types";
 
