@@ -7,6 +7,6 @@ export const config = {
      * requireAuth() / requireWorkspaceMember() in apiHelpers.ts.
      * Exclude: API routes, Next.js internals, static files, known public pages.
      */
-    "/((?!api/|_next/static|_next/image|favicon\\.ico|login|register|share).*)",
+    "/((?!api/|_next/static|_next/image|favicon\\.ico|login|register|share|test-data).*)",
   ],
 };
