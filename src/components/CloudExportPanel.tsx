@@ -759,7 +759,7 @@ function ShareTab({ workspaceId }: { workspaceId: string }) {
   }
 
   async function revokeLink(id: string) {
-    const res = await fetch(`/api/shared-links?id=${id}`, { method: "PATCH" });
+    const res = await fetch(`/api/shared-links?id=${id}&workspaceId=${workspaceId}`, { method: "PATCH" });
     if (res.ok) setLinks((prev) => prev.map((l) => (l.id === id ? { ...l, active: false } : l)));
   }
 

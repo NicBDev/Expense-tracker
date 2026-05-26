@@ -70,10 +70,12 @@ export function useExpenses() {
   );
 
   const update = useCallback(async (expense: Expense) => {
+    if (!workspaceId) return;
     const res = await fetch(`/api/expenses/${expense.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        workspaceId,
         date: expense.date,
         amount: expense.amount,
         category: expense.category,
@@ -89,13 +91,14 @@ export function useExpenses() {
           : e
       )
     );
-  }, []);
+  }, [workspaceId]);
 
   const remove = useCallback(async (id: string) => {
-    const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
+    if (!workspaceId) return;
+    const res = await fetch(`/api/expenses/${id}?workspaceId=${workspaceId}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete expense");
     setExpenses((prev) => prev.filter((e) => e.id !== id));
-  }, []);
+  }, [workspaceId]);
 
   return { expenses, hydrated, add, update, remove, refresh: fetchExpenses };
 }

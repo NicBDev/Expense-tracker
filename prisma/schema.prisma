@@ -79,16 +79,17 @@ model Workspace {
 }
 
 model WorkspaceMember {
-  id          String        @id @default(cuid())
+  id          String   @id @default(cuid())
   workspaceId String
   userId      String
-  role        String        @default("member")
-  joinedAt    DateTime      @default(now())
+  role        String   @default("member")
+  joinedAt    DateTime @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, userId])
+  @@index([workspaceId])
 }
 
 // ─── Expenses ─────────────────────────────────────────────────────────────────
@@ -106,6 +107,10 @@ model Expense {
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([workspaceId, date])
 }
 
 // ─── Shared Links ─────────────────────────────────────────────────────────────
@@ -123,6 +128,8 @@ model SharedLink {
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId])
 }
 
 // ─── Scheduled Exports ────────────────────────────────────────────────────────
@@ -141,6 +148,8 @@ model ScheduledExport {
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId])
 }
 
 // ─── Export History ───────────────────────────────────────────────────────────
@@ -160,4 +169,6 @@ model ExportHistory {
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId])
 }
