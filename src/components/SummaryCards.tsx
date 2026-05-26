@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { type SummaryStats } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { TrendingUp, Calendar, DollarSign, Receipt } from "lucide-react";
@@ -8,7 +9,7 @@ interface Props {
   stats: SummaryStats;
 }
 
-export default function SummaryCards({ stats }: Props) {
+function SummaryCards({ stats }: Props) {
   const cards = [
     {
       label: "All Time Total",
@@ -68,6 +69,8 @@ export default function SummaryCards({ stats }: Props) {
     </div>
   );
 }
+
+export default memo(SummaryCards);
 
 function topCategory(stats: SummaryStats): string {
   const entries = Object.entries(stats.categoryTotals).filter(([, v]) => v > 0);

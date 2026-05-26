@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { type Expense, type Category } from "@/types";
 import { CATEGORIES, generateId } from "@/lib/utils";
-import { X, Save, PlusCircle } from "lucide-react";
+import { X, Save, PlusCircle, Loader2 } from "lucide-react";
 import clsx from "clsx";
 
 interface Props {
   expense?: Expense | null;
-  onSave: (expense: Expense) => void;
+  isSaving?: boolean;
+  onSave: (expense: Expense) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -21,10 +22,13 @@ const defaultForm = {
   description: "",
 };
 
-export default function ExpenseForm({ expense, onSave, onCancel }: Props) {
+function ExpenseForm({ expense, isSaving = false, onSave, onCancel }: Props) {
   const [form, setForm] = useState(defaultForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Combine external loading state with internal (covers both add and edit)
+  const saving = submitting || isSaving;
 
   useEffect(() => {
     if (expense) {
@@ -53,26 +57,27 @@ export default function ExpenseForm({ expense, onSave, onCancel }: Props) {
     return errs;
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) {
       setErrors(errs);
       return;
     }
-    setSaving(true);
-    setTimeout(() => {
-      const saved: Expense = {
-        id: expense?.id ?? generateId(),
-        date: form.date,
-        amount: parseFloat(parseFloat(form.amount).toFixed(2)),
-        category: form.category,
-        description: form.description.trim(),
-        createdAt: expense?.createdAt ?? new Date().toISOString(),
-      };
-      onSave(saved);
-      setSaving(false);
-    }, 300);
+    const saved: Expense = {
+      id: expense?.id ?? generateId(),
+      date: form.date,
+      amount: parseFloat(parseFloat(form.amount).toFixed(2)),
+      category: form.category,
+      description: form.description.trim(),
+      createdAt: expense?.createdAt ?? new Date().toISOString(),
+    };
+    setSubmitting(true);
+    try {
+      await onSave(saved);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const inputClass = (field: string) =>
@@ -191,7 +196,8 @@ export default function ExpenseForm({ expense, onSave, onCancel }: Props) {
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 px-4 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+          disabled={saving}
+          className="flex-1 px-4 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
         >
           Cancel
         </button>
@@ -201,7 +207,7 @@ export default function ExpenseForm({ expense, onSave, onCancel }: Props) {
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-medium transition-colors"
         >
           {saving ? (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : expense ? (
             <Save className="w-4 h-4" />
           ) : (
@@ -213,3 +219,5 @@ export default function ExpenseForm({ expense, onSave, onCancel }: Props) {
     </form>
   );
 }
+
+export default memo(ExpenseForm);

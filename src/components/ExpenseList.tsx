@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { type Expense, type SortField, type SortOrder } from "@/types";
 import {
   CATEGORY_COLORS,
@@ -7,13 +8,14 @@ import {
   formatCurrency,
   formatDate,
 } from "@/lib/utils";
-import { Pencil, Trash2, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react";
+import { Pencil, Trash2, ChevronUp, ChevronDown, ArrowUpDown, Loader2 } from "lucide-react";
 import clsx from "clsx";
 
 interface Props {
   expenses: Expense[];
   sortField: SortField;
   sortOrder: SortOrder;
+  deletingId: string | null;
   onSort: (field: SortField) => void;
   onEdit: (expense: Expense) => void;
   onDelete: (id: string) => void;
@@ -26,10 +28,11 @@ const HEADERS: { label: string; field: SortField }[] = [
   { label: "Amount", field: "amount" },
 ];
 
-export default function ExpenseList({
+function ExpenseList({
   expenses,
   sortField,
   sortOrder,
+  deletingId,
   onSort,
   onEdit,
   onDelete,
@@ -81,110 +84,135 @@ export default function ExpenseList({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {expenses.map((expense) => (
-              <tr
-                key={expense.id}
-                className="hover:bg-slate-50 transition-colors group"
-              >
-                <td className="px-5 py-3.5 text-slate-600 whitespace-nowrap">
-                  {formatDate(expense.date)}
-                </td>
-                <td className="px-5 py-3.5 text-slate-800 max-w-xs truncate">
-                  {expense.description}
-                </td>
-                <td className="px-5 py-3.5">
-                  <span
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-                    style={{
-                      backgroundColor:
-                        CATEGORY_COLORS[expense.category] + "20",
-                      color: CATEGORY_COLORS[expense.category],
-                    }}
-                  >
-                    {CATEGORY_ICONS[expense.category]}
-                    {expense.category}
-                  </span>
-                </td>
-                <td className="px-5 py-3.5 font-semibold text-slate-900 whitespace-nowrap">
-                  {formatCurrency(expense.amount)}
-                </td>
-                <td className="px-5 py-3.5">
-                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => onEdit(expense)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                      title="Edit"
+            {expenses.map((expense) => {
+              const isDeleting = deletingId === expense.id;
+              return (
+                <tr
+                  key={expense.id}
+                  className={clsx(
+                    "hover:bg-slate-50 transition-colors group",
+                    isDeleting && "opacity-50"
+                  )}
+                >
+                  <td className="px-5 py-3.5 text-slate-600 whitespace-nowrap">
+                    {formatDate(expense.date)}
+                  </td>
+                  <td className="px-5 py-3.5 text-slate-800 max-w-xs truncate">
+                    {expense.description}
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+                      style={{
+                        backgroundColor: CATEGORY_COLORS[expense.category] + "20",
+                        color: CATEGORY_COLORS[expense.category],
+                      }}
                     >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => onDelete(expense.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      {CATEGORY_ICONS[expense.category]}
+                      {expense.category}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5 font-semibold text-slate-900 whitespace-nowrap">
+                    {formatCurrency(expense.amount)}
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => onEdit(expense)}
+                        disabled={!!deletingId}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-40 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => onDelete(expense.id)}
+                        disabled={!!deletingId}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors"
+                        title="Delete"
+                        aria-label={isDeleting ? "Deleting…" : "Delete expense"}
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {/* Mobile cards */}
       <div className="md:hidden divide-y divide-slate-100">
-        {expenses.map((expense) => (
-          <div key={expense.id} className="p-4 flex items-start gap-3">
+        {expenses.map((expense) => {
+          const isDeleting = deletingId === expense.id;
+          return (
             <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
-              style={{
-                backgroundColor: CATEGORY_COLORS[expense.category] + "20",
-              }}
+              key={expense.id}
+              className={clsx("p-4 flex items-start gap-3", isDeleting && "opacity-50")}
             >
-              {CATEGORY_ICONS[expense.category]}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-medium text-slate-800 truncate">
-                  {expense.description}
-                </p>
-                <span className="font-bold text-slate-900 whitespace-nowrap">
-                  {formatCurrency(expense.amount)}
-                </span>
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
+                style={{ backgroundColor: CATEGORY_COLORS[expense.category] + "20" }}
+              >
+                {CATEGORY_ICONS[expense.category]}
               </div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs text-slate-400">
-                  {formatDate(expense.date)}
-                </span>
-                <span
-                  className="text-xs px-1.5 py-0.5 rounded-full font-medium"
-                  style={{
-                    backgroundColor: CATEGORY_COLORS[expense.category] + "20",
-                    color: CATEGORY_COLORS[expense.category],
-                  }}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium text-slate-800 truncate">
+                    {expense.description}
+                  </p>
+                  <span className="font-bold text-slate-900 whitespace-nowrap">
+                    {formatCurrency(expense.amount)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-slate-400">
+                    {formatDate(expense.date)}
+                  </span>
+                  <span
+                    className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                    style={{
+                      backgroundColor: CATEGORY_COLORS[expense.category] + "20",
+                      color: CATEGORY_COLORS[expense.category],
+                    }}
+                  >
+                    {expense.category}
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1 shrink-0">
+                <button
+                  onClick={() => onEdit(expense)}
+                  disabled={!!deletingId}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-40 transition-colors"
                 >
-                  {expense.category}
-                </span>
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onDelete(expense.id)}
+                  disabled={!!deletingId}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors"
+                  aria-label={isDeleting ? "Deleting…" : "Delete expense"}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                </button>
               </div>
             </div>
-            <div className="flex flex-col gap-1 shrink-0">
-              <button
-                onClick={() => onEdit(expense)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => onDelete(expense.id)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
+
+export default memo(ExpenseList);

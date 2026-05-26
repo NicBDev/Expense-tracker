@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { type Expense, type FilterState, type SortField, type SortOrder } from "@/types";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useSession } from "next-auth/react";
+import { useToast } from "@/contexts/ToastContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API-backed expense hook
@@ -12,15 +13,23 @@ import { useSession } from "next-auth/react";
 export function useExpenses() {
   const { workspaceId } = useWorkspace();
   const { status } = useSession();
+  const toast = useToast();
+
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchExpenses = useCallback(async () => {
     if (!workspaceId || status !== "authenticated") return;
     setHydrated(false);
     try {
       const res = await fetch(`/api/expenses?workspaceId=${workspaceId}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        toast.error("Failed to load expenses");
+        return;
+      }
       const data = await res.json();
       setExpenses(
         data.map((e: {
@@ -35,9 +44,13 @@ export function useExpenses() {
           createdAt: e.createdAt,
         }))
       );
+    } catch {
+      toast.error("Failed to load expenses");
     } finally {
       setHydrated(true);
     }
+  // toast is stable (useCallback), safe to include
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, status]);
 
   useEffect(() => {
@@ -47,57 +60,102 @@ export function useExpenses() {
   const add = useCallback(
     async (expense: Omit<Expense, "id" | "createdAt">) => {
       if (!workspaceId) return;
-      const res = await fetch("/api/expenses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...expense, workspaceId }),
-      });
-      if (!res.ok) throw new Error("Failed to create expense");
-      const created = await res.json();
-      setExpenses((prev) => [
-        {
-          id: created.id,
-          date: created.date,
-          amount: created.amount,
-          category: created.category,
-          description: created.description,
-          createdAt: created.createdAt,
-        },
-        ...prev,
-      ]);
+      setAdding(true);
+      try {
+        const res = await fetch("/api/expenses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...expense, workspaceId }),
+        });
+        if (!res.ok) {
+          toast.error("Failed to add expense");
+          throw new Error("Failed to create expense");
+        }
+        const created = await res.json();
+        setExpenses((prev) => [
+          {
+            id: created.id,
+            date: created.date,
+            amount: created.amount,
+            category: created.category,
+            description: created.description,
+            createdAt: created.createdAt,
+          },
+          ...prev,
+        ]);
+      } catch (err) {
+        if (!(err instanceof Error && err.message === "Failed to create expense")) {
+          toast.error("Failed to add expense");
+        }
+        throw err;
+      } finally {
+        setAdding(false);
+      }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [workspaceId]
   );
 
   const update = useCallback(async (expense: Expense) => {
-    const res = await fetch(`/api/expenses/${expense.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date: expense.date,
-        amount: expense.amount,
-        category: expense.category,
-        description: expense.description,
-      }),
-    });
-    if (!res.ok) throw new Error("Failed to update expense");
-    const updated = await res.json();
-    setExpenses((prev) =>
-      prev.map((e) =>
-        e.id === expense.id
-          ? { ...e, date: updated.date, amount: updated.amount, category: updated.category, description: updated.description }
-          : e
-      )
-    );
-  }, []);
+    if (!workspaceId) return;
+    setUpdating(true);
+    try {
+      const res = await fetch(`/api/expenses/${expense.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceId,
+          date: expense.date,
+          amount: expense.amount,
+          category: expense.category,
+          description: expense.description,
+        }),
+      });
+      if (!res.ok) {
+        toast.error("Failed to update expense");
+        throw new Error("Failed to update expense");
+      }
+      const updated = await res.json();
+      setExpenses((prev) =>
+        prev.map((e) =>
+          e.id === expense.id
+            ? { ...e, date: updated.date, amount: updated.amount, category: updated.category, description: updated.description }
+            : e
+        )
+      );
+    } catch (err) {
+      if (!(err instanceof Error && err.message === "Failed to update expense")) {
+        toast.error("Failed to update expense");
+      }
+      throw err;
+    } finally {
+      setUpdating(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId]);
 
   const remove = useCallback(async (id: string) => {
-    const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
-    if (!res.ok) throw new Error("Failed to delete expense");
-    setExpenses((prev) => prev.filter((e) => e.id !== id));
-  }, []);
+    if (!workspaceId) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/expenses/${id}?workspaceId=${workspaceId}`, { method: "DELETE" });
+      if (!res.ok) {
+        toast.error("Failed to delete expense");
+        throw new Error("Failed to delete expense");
+      }
+      setExpenses((prev) => prev.filter((e) => e.id !== id));
+    } catch (err) {
+      if (!(err instanceof Error && err.message === "Failed to delete expense")) {
+        toast.error("Failed to delete expense");
+      }
+      throw err;
+    } finally {
+      setDeletingId(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId]);
 
-  return { expenses, hydrated, add, update, remove, refresh: fetchExpenses };
+  return { expenses, hydrated, add, update, remove, refresh: fetchExpenses, adding, updating, deletingId };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useToast } from "@/contexts/ToastContext";
 import WorkspaceMembersModal from "@/components/WorkspaceMembersModal";
 
 const navLinks = [
@@ -25,6 +26,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { workspaceId, setWorkspaceId, workspaces, currentWorkspace, refreshWorkspaces } = useWorkspace();
+  const toast = useToast();
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [newWsName, setNewWsName] = useState("");
@@ -46,6 +48,9 @@ export default function Navbar() {
         setWorkspaceId(ws.id);
         setNewWsName("");
         setWorkspaceOpen(false);
+        toast.success(`Workspace "${ws.name}" created`);
+      } else {
+        toast.error("Failed to create workspace");
       }
     } finally {
       setCreatingWs(false);
