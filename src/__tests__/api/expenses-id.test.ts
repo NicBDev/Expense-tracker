@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Tests for PATCH and DELETE /api/expenses/[id]
  *
  * Key security invariants verified:

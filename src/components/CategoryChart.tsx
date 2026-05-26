@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   PieChart,
   Pie,
@@ -15,7 +16,7 @@ interface Props {
   stats: SummaryStats;
 }
 
-export default function CategoryChart({ stats }: Props) {
+function CategoryChart({ stats }: Props) {
   const data = (Object.entries(stats.categoryTotals) as [Category, number][])
     .filter(([, v]) => v > 0)
     .map(([name, value]) => ({ name, value }));
@@ -69,3 +70,5 @@ export default function CategoryChart({ stats }: Props) {
     </div>
   );
 }
+
+export default memo(CategoryChart);

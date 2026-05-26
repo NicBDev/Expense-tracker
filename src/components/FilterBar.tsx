@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { type FilterState, type Category } from "@/types";
 import { CATEGORIES } from "@/lib/utils";
+import { useDebounce } from "@/hooks/useDebounce";
 import { Search, X } from "lucide-react";
 
 interface Props {
@@ -10,11 +12,29 @@ interface Props {
 }
 
 export default function FilterBar({ filter, onChange }: Props) {
+  // Local state for the search input so keystrokes feel instant in the UI
+  const [localSearch, setLocalSearch] = useState(filter.search);
+
+  // Sync local search back to parent after 300ms of inactivity
+  const debouncedSearch = useDebounce(localSearch, 300);
+
+  useEffect(() => {
+    if (debouncedSearch !== filter.search) {
+      onChange({ ...filter, search: debouncedSearch });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  // Keep local in sync when parent clears filters externally (e.g. "Clear filters")
+  useEffect(() => {
+    if (filter.search === "") setLocalSearch("");
+  }, [filter.search]);
+
   const set = (patch: Partial<FilterState>) =>
     onChange({ ...filter, ...patch });
 
   const hasActive =
-    filter.search || filter.category !== "All" || filter.dateFrom || filter.dateTo;
+    localSearch || filter.category !== "All" || filter.dateFrom || filter.dateTo;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
@@ -24,8 +44,8 @@ export default function FilterBar({ filter, onChange }: Props) {
         <input
           type="text"
           placeholder="Search expenses..."
-          value={filter.search}
-          onChange={(e) => set({ search: e.target.value })}
+          value={localSearch}
+          onChange={(e) => setLocalSearch(e.target.value)}
           className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-300 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 bg-white"
         />
       </div>
@@ -68,9 +88,10 @@ export default function FilterBar({ filter, onChange }: Props) {
 
       {hasActive && (
         <button
-          onClick={() =>
-            onChange({ search: "", category: "All", dateFrom: "", dateTo: "" })
-          }
+          onClick={() => {
+            setLocalSearch("");
+            onChange({ search: "", category: "All", dateFrom: "", dateTo: "" });
+          }}
           className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
         >
           <X className="w-3 h-3" />

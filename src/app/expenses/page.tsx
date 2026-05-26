@@ -4,11 +4,12 @@ import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { type Expense, type FilterState, type SortField, type SortOrder } from "@/types";
 import { useExpenses, useFilteredExpenses } from "@/hooks/useExpenses";
+import { useToast } from "@/contexts/ToastContext";
 import { computeStats, exportToCSV, formatCurrency } from "@/lib/utils";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import FilterBar from "@/components/FilterBar";
-import { Download, X } from "lucide-react";
+import { Download } from "lucide-react";
 
 const DEFAULT_FILTER: FilterState = {
   search: "",
@@ -20,14 +21,14 @@ const DEFAULT_FILTER: FilterState = {
 function ExpensesContent() {
   const params = useSearchParams();
   const router = useRouter();
-  const { expenses, hydrated, add, update, remove } = useExpenses();
+  const toast = useToast();
+  const { expenses, hydrated, add, update, remove, adding, updating, deletingId } = useExpenses();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
 
   // open form from navbar CTA
   useEffect(() => {
@@ -40,11 +41,6 @@ function ExpensesContent() {
   const filtered = useFilteredExpenses(expenses, filter, sortField, sortOrder);
   const stats = useMemo(() => computeStats(filtered), [filtered]);
 
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
-
   function handleSort(field: SortField) {
     if (sortField === field) {
       setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
@@ -54,13 +50,13 @@ function ExpensesContent() {
     }
   }
 
-  function handleSave(expense: Expense) {
+  async function handleSave(expense: Expense) {
     if (editing) {
-      update(expense);
-      showToast("Expense updated");
+      await update(expense);
+      toast.success("Expense updated");
     } else {
-      add(expense);
-      showToast("Expense added");
+      await add(expense);
+      toast.success("Expense added");
     }
     setShowForm(false);
     setEditing(null);
@@ -75,11 +71,11 @@ function ExpensesContent() {
     setDeleteConfirm(id);
   }
 
-  function handleDeleteConfirm() {
+  async function handleDeleteConfirm() {
     if (deleteConfirm) {
-      remove(deleteConfirm);
       setDeleteConfirm(null);
-      showToast("Expense deleted");
+      await remove(deleteConfirm);
+      toast.success("Expense deleted");
     }
   }
 
@@ -123,6 +119,7 @@ function ExpensesContent() {
         expenses={filtered}
         sortField={sortField}
         sortOrder={sortOrder}
+        deletingId={deletingId}
         onSort={handleSort}
         onEdit={handleEdit}
         onDelete={handleDeleteRequest}
@@ -134,13 +131,16 @@ function ExpensesContent() {
           <div
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
             onClick={() => {
-              setShowForm(false);
-              setEditing(null);
+              if (!adding && !updating) {
+                setShowForm(false);
+                setEditing(null);
+              }
             }}
           />
           <div className="relative ml-auto w-full max-w-md bg-white h-full overflow-y-auto shadow-2xl p-6">
             <ExpenseForm
               expense={editing}
+              isSaving={editing ? updating : adding}
               onSave={handleSave}
               onCancel={() => {
                 setShowForm(false);
@@ -180,19 +180,6 @@ function ExpensesContent() {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium animate-fade-in">
-          {toast}
-          <button
-            onClick={() => setToast(null)}
-            className="text-slate-400 hover:text-white"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
       )}
     </div>

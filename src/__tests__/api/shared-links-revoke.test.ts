@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Tests for PATCH /api/shared-links?id=...&workspaceId=... (revoke a link)
  *
  * Key security invariants verified:
