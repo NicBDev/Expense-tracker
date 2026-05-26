@@ -1,26 +1,41 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, isErrorResponse } from "@/lib/apiHelpers";
+import { requireAuth, requireWorkspaceMember, isErrorResponse } from "@/lib/apiHelpers";
 
 // PATCH /api/expenses/[id]
+// Requires workspaceId in the request body so membership can be verified
+// before revealing whether the expense exists.
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const auth = await requireAuth();
   if (isErrorResponse(auth)) return auth;
 
-  const expense = await prisma.expense.findUnique({ where: { id: params.id } });
-  if (!expense) return NextResponse.json({ error: "Expense not found" }, { status: 404 });
+  const body = await req.json();
+  const { workspaceId, date, amount, category, description } = body;
 
-  // Only creator or workspace owner can edit
-  if (expense.userId !== auth.userId) {
-    const member = await prisma.workspaceMember.findUnique({
-      where: { workspaceId_userId: { workspaceId: expense.workspaceId, userId: auth.userId } },
-    });
-    if (!member || member.role !== "owner") {
-      return NextResponse.json({ error: "You can only edit your own expenses" }, { status: 403 });
-    }
+  if (!workspaceId) {
+    return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
   }
 
-  const { date, amount, category, description } = await req.json();
+  // Verify workspace membership BEFORE fetching the expense — prevents leaking
+  // whether an expense ID exists to users outside the workspace.
+  const access = await requireWorkspaceMember(auth.userId, workspaceId);
+  if (isErrorResponse(access)) return access;
+
+  if (access.role === "viewer") {
+    return NextResponse.json({ error: "Viewers cannot edit expenses" }, { status: 403 });
+  }
+
+  // Fetch workspace-scoped — a non-existent ID and a wrong-workspace ID both return 404.
+  const expense = await prisma.expense.findUnique({
+    where: { id: params.id, workspaceId },
+  });
+  if (!expense) return NextResponse.json({ error: "Expense not found" }, { status: 404 });
+
+  // Only the creator or a workspace owner can edit.
+  if (expense.userId !== auth.userId && access.role !== "owner") {
+    return NextResponse.json({ error: "You can only edit your own expenses" }, { status: 403 });
+  }
+
   const updated = await prisma.expense.update({
     where: { id: params.id },
     data: {
@@ -44,21 +59,37 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   });
 }
 
-// DELETE /api/expenses/[id]
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+// DELETE /api/expenses/[id]?workspaceId=...
+// Requires workspaceId as a query param so membership can be verified
+// before revealing whether the expense exists.
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const auth = await requireAuth();
   if (isErrorResponse(auth)) return auth;
 
-  const expense = await prisma.expense.findUnique({ where: { id: params.id } });
+  const { searchParams } = new URL(req.url);
+  const workspaceId = searchParams.get("workspaceId");
+
+  if (!workspaceId) {
+    return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
+  }
+
+  // Verify workspace membership BEFORE fetching the expense.
+  const access = await requireWorkspaceMember(auth.userId, workspaceId);
+  if (isErrorResponse(access)) return access;
+
+  if (access.role === "viewer") {
+    return NextResponse.json({ error: "Viewers cannot delete expenses" }, { status: 403 });
+  }
+
+  // Fetch workspace-scoped — prevents cross-workspace ID enumeration.
+  const expense = await prisma.expense.findUnique({
+    where: { id: params.id, workspaceId },
+  });
   if (!expense) return NextResponse.json({ error: "Expense not found" }, { status: 404 });
 
-  if (expense.userId !== auth.userId) {
-    const member = await prisma.workspaceMember.findUnique({
-      where: { workspaceId_userId: { workspaceId: expense.workspaceId, userId: auth.userId } },
-    });
-    if (!member || member.role !== "owner") {
-      return NextResponse.json({ error: "You can only delete your own expenses" }, { status: 403 });
-    }
+  // Only the creator or a workspace owner can delete.
+  if (expense.userId !== auth.userId && access.role !== "owner") {
+    return NextResponse.json({ error: "You can only delete your own expenses" }, { status: 403 });
   }
 
   await prisma.expense.delete({ where: { id: params.id } });

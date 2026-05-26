@@ -79,20 +79,27 @@ export async function POST(req: Request) {
   );
 }
 
-// PATCH /api/shared-links?id=... — revoke a link
+// PATCH /api/shared-links?id=...&workspaceId=... — revoke a link
+// Requires workspaceId as a query param so membership can be verified
+// before revealing whether the link ID exists.
 export async function PATCH(req: Request) {
   const auth = await requireAuth();
   if (isErrorResponse(auth)) return auth;
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
+  const workspaceId = searchParams.get("workspaceId");
+
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+  if (!workspaceId) return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
 
-  const link = await prisma.sharedLink.findUnique({ where: { id } });
-  if (!link) return NextResponse.json({ error: "Link not found" }, { status: 404 });
-
-  const access = await requireWorkspaceMember(auth.userId, link.workspaceId);
+  // Verify workspace membership BEFORE fetching the link.
+  const access = await requireWorkspaceMember(auth.userId, workspaceId);
   if (isErrorResponse(access)) return access;
+
+  // Fetch workspace-scoped — prevents cross-workspace ID enumeration.
+  const link = await prisma.sharedLink.findUnique({ where: { id, workspaceId } });
+  if (!link) return NextResponse.json({ error: "Link not found" }, { status: 404 });
 
   // Only creator or owner can revoke
   if (link.userId !== auth.userId && access.role !== "owner") {
